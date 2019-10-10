@@ -33,6 +33,7 @@ def print_results(questions):
     if all(not q.answered for q in questions):
         return
     correct = sum(int(q.answered and q.correct) for q in questions)
+    answered = sum(int(q.answered) for q in questions)
     total = len(questions)
     if verbose:
         print('\n'.join(
@@ -40,6 +41,7 @@ def print_results(questions):
                 for q in questions 
                     if q.answered and not q.correct)
             )
+    print(f"{correct}/{answered} questions ({correct/answered*100:.2f}%)")
     print(f"{correct}/{total} questions ({correct/total*100:.2f}%)")
 
 def ask_question(question):
