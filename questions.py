@@ -2,19 +2,23 @@
 
 """Questionnaire application"""
    
-import sys
 import json
+import os
 import pprint
 import random
+import sys
 import textwrap
-import os
 
 
-q_sort = False
+# input argument flags and variables
+numbers = []
 verbose = False
 show_answer = False
-file_import = "./questions.json"
+shuffle_answers = False
+shuffle_questions = False
+file_import = "./questions_b.json"
 
+# ui constants
 width, height = os.get_terminal_size()
 y_offset = ((height - 24) // 2) if height > 24 else 0
 x_offset = ((width - 80) // 2) if width > 80 else 0
@@ -22,12 +26,18 @@ x_indent = " " * x_offset
 
 class Question:
     question_id = 1
-    def __init__(self, data):
+    def __init__(self, data, shuffle):
         self.question_id = Question.question_id
         Question.question_id += 1
         self.question = data['question']
-        self.answers = data['answers']
-        self.answer = data['answer']
+        if shuffle:
+            random.shuffle(data['answers'])
+        self.answers = [answer for answer, _ in data['answers']]
+        self.answer = [ 
+                i 
+                    for i, (_, correct) in enumerate(data['answers']) 
+                        if correct
+            ]
         self.answered = False
         self.correct = False
     def __repr__(self):
@@ -52,7 +62,8 @@ def print_results(questions):
 
 def ask_question(question, question_id):
     indent = "  "
-    qid = question.question_id if not q_sort else question_id
+    qid = question.question_id if not shuffle_questions else question_id
+    # append the question text
     text = [
         f"{x_indent}{str(qid)+'.' if i<1 else indent} {s}"
             for i, s in enumerate(
@@ -65,8 +76,10 @@ def ask_question(question, question_id):
     # answer = question.answers[question.answer]
     # random.shuffle(question.answers)
     # question.answer = question.answers.indexof(answer)
+    
+    # append the answers text
     for i, answer in enumerate(question.answers):
-        for j, s in enumerate(textwrap.wrap(answer, 80-len(indent*2)-2)):
+        for j, s in enumerate(textwrap.wrap(answer, 80-len(indent*2)-4)):
             text.append(f"{x_indent}{indent*2}{chr(i+97)+'.' if j<1 else '  '} {s}")
         text.append('')
     # output question and answer format
@@ -74,11 +87,10 @@ def ask_question(question, question_id):
     print('\n'.join(text))
     print()
 
-def build_valid_answer_set(question):
-    return ''.join(chr(97+i) for i in range(len(question.answers)))
-
 def check_valid_input(question, answer):
-    answers = build_valid_answer_set(question)
+    # creates a set ranging from a->d|e depending on number of possible answers
+    answers = ''.join(chr(97+i) for i in range(len(question.answers)))
+    # checks if all input characters are in the answer set
     valid = all(ch in answers for ch in answer)
     if not valid:
         print(f"{x_indent}Invalid input: must be in [{', '.join(answers)}]")
@@ -104,9 +116,6 @@ def handle_input(question):
             check_valid_answer_length(question, answer)):
             return answer
 
-def InvalidArgError(ValueError):
-    pass
-
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
     print()
@@ -121,23 +130,33 @@ py questions.py -[s|v]
     )
 
 if __name__ == "__main__":
-    # system args parsing:
+    # parse input arguments
     if sys.argv:
-        for arg in sys.argv:
+        for arg in sys.argv[1:]:
             if arg == '-s':
-                q_sort = True
+                shuffle_questions = True
+            elif arg == '-o':
+                shuffle_answers = True
             elif arg == '-a':
                 show_answer = True
             elif arg == '-v':
                 verbose = True
+            elif arg.startswith('--questions='):
+                # TODO: select questions from a set of numbers
+                # and use it to test
+                _, number = arg.split('=')
+                numbers = number.split(' ')
+            else:
+                print(f"{arg} does not match any flags")
+                exit(1)
 
     # load the question set
     with open(file_import, "r") as f:
         data = json.load(f)
     # convert them to question objects
-    questions = [Question(d) for d in data]
+    questions = [Question(d, shuffle=shuffle_answers) for d in data]
     # randomize order of questions
-    if q_sort:
+    if shuffle_questions:
         random.shuffle(questions)
     for i, q in enumerate(questions):
         clear_screen()
@@ -154,8 +173,7 @@ if __name__ == "__main__":
             else:
                 print(f"{x_indent}Incorrect: {', '.join(chr(97+a) for a in q.answer)}")
             try:
-                input(f"{x_indent}Press any key to continue...")
+                input(f"{x_indent}Press <enter> to continue...")
             except KeyboardInterrupt:
                 break
     print_results(questions)
-
