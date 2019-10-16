@@ -10,10 +10,12 @@ import sys
 import textwrap
 
 
-# input argument flags and variables
+# input argument flags with defaults and variables
 numbers = []
 verbose = False
 show_answer = False
+save_results = False
+print_results = True
 shuffle_answers = False
 shuffle_questions = False
 file_import = "./questions_b.json"
@@ -34,31 +36,78 @@ class Question:
             random.shuffle(data['answers'])
         self.answers = [answer for answer, _ in data['answers']]
         self.answer = [ 
-                i 
-                    for i, (_, correct) in enumerate(data['answers']) 
-                        if correct
+                i for i, (_, correct) in enumerate(data['answers']) 
+                    if correct
             ]
         self.answered = False
         self.correct = False
     def __repr__(self):
         return f"Question({self.question_id})"
 
-def print_results(questions):
+def results_to_file(text):
+    """saves results to a file named 'attempt_x'"""
+    attempts = get_next_attempt_value_from_directory_names()
+    filename = f"attempt_{attempts}.txt"
+    with open(filename, "w") as f:
+        f.write(text)
+    print(f"Written results to: {filename}")
+
+def results_to_term(text):
+    print(text)
+
+def get_next_attempt_value_from_directory_names() -> int:
+    """Returns next integer value to use in filename when saving results"""
+    for _, _, files in os.walk("."):
+        current = 1 # default attempt name value begins at 1
+        for filename in files:
+            if filename.startswith("attempt"):
+                # removes "attempt_" and ".txt"
+                attempt = int(filename.split("_")[1].split(".")[0])
+                if attempt > current:
+                    current = attempt + 1
+        return current
+
+def output_results(questions):
+    """Handles output to either terminal or file"""
+    global print_results, save_results, verbose
+
+    # nothing to output
     if all(not q.answered for q in questions):
         return
+
+    # somehow no output options were set. this should not happen, set print on
+    if not print_results and not save_results:
+        print_results = True
+
+    # calculate results
     correct = sum(int(q.answered and q.correct) for q in questions)
     answered = sum(int(q.answered) for q in questions)
     total = len(questions)
-    clear_screen()
+    lines = []
+    # verbose currently only adds the question id that was incorrectly answered
+    # TODO: add coloring (maybe from colorama)
+    #     : add full question and answers text
+    lines.append(f"{correct}/{answered} questions ({correct/answered*100:.2f}%)")
+    lines.append(f"{correct}/{total} questions ({correct/total*100:.2f}%)")
     if verbose:
-        print("Incorrect:")
-        print('\n'.join(
+        lines.append("Incorrect:")
+        lines.append('\n'.join(
             str(q.question_id)
                 for q in questions 
                     if q.answered and not q.correct)
             )
-    print(f"{correct}/{answered} questions ({correct/answered*100:.2f}%)")
-    print(f"{correct}/{total} questions ({correct/total*100:.2f}%)")
+    text = "\n".join(lines)
+
+    # determine if results are saved && printed, just saved or just printed
+    # something will always print regardless of to term or to file
+    clear_screen()
+    if save_results and print_results:
+        results_to_file(text)
+        results_to_term(text)
+    elif save_results:
+        results_to_file(text)
+    else:
+        results_to_term(text)
 
 def ask_question(question, question_id):
     indent = "  "
@@ -129,8 +178,10 @@ py questions.py -[s|v]
     -f : file path to question set"""[1:]
     )
 
-if __name__ == "__main__":
-    # parse input arguments
+def handle_args(args):
+    """parse input arguments"""
+    global shuffle_questions, shuffle_answers, show_answer, verbose
+    global save_results, numbers
     if sys.argv:
         for arg in sys.argv[1:]:
             if arg == '-s':
@@ -141,6 +192,9 @@ if __name__ == "__main__":
                 show_answer = True
             elif arg == '-v':
                 verbose = True
+            elif arg == '-S':
+                save_results = True
+                print(save_results)
             elif arg.startswith('--questions='):
                 # TODO: select questions from a set of numbers
                 # and use it to test
@@ -150,6 +204,9 @@ if __name__ == "__main__":
                 print(f"{arg} does not match any flags")
                 exit(1)
 
+if __name__ == "__main__":
+    # global variables set before parsing questions    
+    handle_args(sys.argv)
     # load the question set
     with open(file_import, "r") as f:
         data = json.load(f)
@@ -176,4 +233,5 @@ if __name__ == "__main__":
                 input(f"{x_indent}Press <enter> to continue...")
             except KeyboardInterrupt:
                 break
-    print_results(questions)
+    output_results(questions)
+
