@@ -171,8 +171,10 @@ def clear_screen():
 
 def usage():
     print("""
-py questions.py -[s|v]
+py questions.py -[afosvS]
     -s : shuffle question set
+    -o : shuffle answer set per question
+    -S : save results to file <attempt_#>.txt
     -v : verbose results
     -a : answers shown on incorrectly answered questions
     -f : file path to question set"""[1:]
@@ -184,7 +186,10 @@ def handle_args(args):
     global save_results, numbers
     if sys.argv:
         for arg in sys.argv[1:]:
-            if arg == '-s':
+            if arg == '-h':
+                usage()
+                exit(0)
+            elif arg == '-s':
                 shuffle_questions = True
             elif arg == '-o':
                 shuffle_answers = True
