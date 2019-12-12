@@ -9,6 +9,9 @@ import random
 import sys
 import textwrap
 
+from config import file_name_json, width_min, height_min
+from dataclasses import dataclass
+from model import Question
 
 # input argument flags with defaults and variables
 numbers = []
@@ -18,33 +21,16 @@ save_results = False
 print_results = True
 shuffle_answers = False
 shuffle_questions = False
-file_import = "./questions_b.json"
 
 # ui constants
 width, height = os.get_terminal_size()
-y_offset = ((height - 24) // 2) if height > 24 else 0
-x_offset = ((width - 80) // 2) if width > 80 else 0
+y_offset = ((height - height_min) // 2) if height > height_min else 0
+x_offset = ((width - width_min) // 2) if width > width_min else 0
 x_indent = " " * x_offset
+code_indent = " " * 4
+indent = "  "
 
-class Question:
-    question_id = 1
-    def __init__(self, data, shuffle):
-        self.question_id = Question.question_id
-        Question.question_id += 1
-        self.question = data['question']
-        if shuffle:
-            random.shuffle(data['answers'])
-        self.answers = [answer for answer, _ in data['answers']]
-        self.answer = [ 
-                i for i, (_, correct) in enumerate(data['answers']) 
-                    if correct
-            ]
-        self.answered = False
-        self.correct = False
-    def __repr__(self):
-        return f"Question({self.question_id})"
-
-def results_to_file(text):
+def results_to_file(text) -> None:
     """saves results to a file named 'attempt_x'"""
     attempts = get_next_attempt_value_from_directory_names()
     filename = f"attempt_{attempts}.txt"
@@ -52,7 +38,8 @@ def results_to_file(text):
         f.write(text)
     print(f"Written results to: {filename}")
 
-def results_to_term(text):
+def results_to_term(text) -> None:
+    clear_screen()
     print(text)
 
 def get_next_attempt_value_from_directory_names() -> int:
@@ -84,11 +71,15 @@ def output_results(questions):
     answered = sum(int(q.answered) for q in questions)
     total = len(questions)
     lines = []
+
     # verbose currently only adds the question id that was incorrectly answered
     # TODO: add coloring (maybe from colorama)
     #     : add full question and answers text
-    lines.append(f"{correct}/{answered} questions ({correct/answered*100:.2f}%)")
-    lines.append(f"{correct}/{total} questions ({correct/total*100:.2f}%)")
+    lines.append(f"Results:")
+    lines.append(f"  {correct}/{answered} questions ({correct/answered * 100:.2f}%)")
+    lines.append(f"  {correct}/{total} questions ({correct/total * 100:.2f}%)")
+
+    # output more information if flag is set
     if verbose:
         lines.append("Incorrect:")
         lines.append('\n'.join(
@@ -96,11 +87,11 @@ def output_results(questions):
                 for q in questions 
                     if q.answered and not q.correct)
             )
+
     text = "\n".join(lines)
 
     # determine if results are saved && printed, just saved or just printed
     # something will always print regardless of to term or to file
-    clear_screen()
     if save_results and print_results:
         results_to_file(text)
         results_to_term(text)
@@ -110,16 +101,34 @@ def output_results(questions):
         results_to_term(text)
 
 def ask_question(question, question_id):
-    indent = "  "
     qid = question.question_id if not shuffle_questions else question_id
+    
     # append the question text
     text = [
-        f"{x_indent}{str(qid)+'.' if i<1 else indent} {s}"
+        f"{x_indent}{str(qid) + '.' if i < 1 else indent} {s}"
             for i, s in enumerate(
-                textwrap.wrap(question.question, 80-len(indent)-2)
+                textwrap.wrap(question.question, 80 - len(indent) - 2)
             )
         ]
     text.append('')
+    
+    # if any code blocks are included in the question
+    for line in question.code:
+        text += [
+            f"{x_indent}{code_indent} {s}"
+                for s in textwrap.wrap(line, width - len(x_indent) - len(code_indent))
+            ]
+    text.append('')
+    
+    # any text after the code block is now added
+    text += [
+        f"{x_indent}{indent} {s}"
+            for i, s in enumerate(
+                textwrap.wrap(question.additional, 80 - len(indent) - 2)
+            )
+        ]
+    text.append('')
+
     # TODO: randomize answers within a question
     # save the full answer text to find index later after randomization
     # answer = question.answers[question.answer]
@@ -128,13 +137,12 @@ def ask_question(question, question_id):
     
     # append the answers text
     for i, answer in enumerate(question.answers):
-        for j, s in enumerate(textwrap.wrap(answer, 80-len(indent*2)-4)):
-            text.append(f"{x_indent}{indent*2}{chr(i+97)+'.' if j<1 else '  '} {s}")
+        for j, s in enumerate(textwrap.wrap(answer, 80 - len(indent * 2) - 4)):
+            answer_char = chr(i + 97) + '.' if j < 1 else '  '
+            text.append(f"{x_indent}{indent * 2}{answer_char} {s}")
         text.append('')
     # output question and answer format
-    print('\n'.join(' ' for _ in range(y_offset)))
-    print('\n'.join(text))
-    print()
+    print('\n'.join(' ' for _ in range(y_offset)), '\n'.join(text), '')
 
 def check_valid_input(question, answer):
     # creates a set ranging from a->d|e depending on number of possible answers
@@ -189,6 +197,9 @@ def handle_args(args):
             if arg == '-h':
                 usage()
                 exit(0)
+            elif arg.startswith('--file='):
+                # defaults to file_name_json if not set
+                _, file_name_json = arg.split('=')
             elif arg == '-s':
                 shuffle_questions = True
             elif arg == '-o':
@@ -207,19 +218,23 @@ def handle_args(args):
                 numbers = number.split(' ')
             else:
                 print(f"{arg} does not match any flags")
-                exit(1)
 
-if __name__ == "__main__":
+def main():
     # global variables set before parsing questions    
     handle_args(sys.argv)
+
     # load the question set
-    with open(file_import, "r") as f:
+    with open(file_name_json, "r") as f:
         data = json.load(f)
+    
     # convert them to question objects
     questions = [Question(d, shuffle=shuffle_answers) for d in data]
+    
     # randomize order of questions
     if shuffle_questions:
         random.shuffle(questions)
+    
+    # render each question and wait for input from user
     for i, q in enumerate(questions):
         clear_screen()
         ask_question(q, i+1)
@@ -238,5 +253,8 @@ if __name__ == "__main__":
                 input(f"{x_indent}Press <enter> to continue...")
             except KeyboardInterrupt:
                 break
+
     output_results(questions)
 
+if __name__ == "__main__":
+	main()
