@@ -17,7 +17,7 @@ from model import QuestionBuilder as Question
 question_start = re.compile("^(\d*\.)(.*)$")
 question_continue = re.compile("^(\t|   )(.*)$")
 codeblock = re.compile("^\\\"{3}.*$")
-codeline = re.compile("^(\t|   )?((\d*\.|\.{2}).*)$")
+codeline = re.compile("^(\t|   )?((\d*\.|\.{2})?.*)$")
 answers = re.compile("^(\t|    )[a-e]\.(.*)$")
 answer = re.compile("^(A\..*)\((.*)\).*$")
 width, _ = os.get_terminal_size()
@@ -68,7 +68,6 @@ def parse_text(file_name):
                 code_block_added = True
             else:
                 code_block_start = True
-                code_block_added = False
             continue
 
         # possible code line - only valid if code_block_start is on
@@ -97,6 +96,8 @@ def parse_text(file_name):
             serialized_question = question.serialize()
             questions.append(serialized_question)
             question.clear()
+            code_block_start = False
+            code_block_added = False
             continue
 
         raise ValueError(f"{l+1}: {repr(line)}")
@@ -112,3 +113,4 @@ def main(file_name_in, file_name_out):
 
 if __name__ == "__main__":
 	main()
+

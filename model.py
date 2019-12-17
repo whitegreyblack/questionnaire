@@ -48,8 +48,6 @@ class QuestionBuilder:
         for i, answer in enumerate(self.answers):
             answer.correct = i in answers
     def serialize(self):
-        print('code', type(self.code), self.code)
-
         return {
             'question_before': ' '.join(self.before),
             'question_after': ' '.join(self.after),

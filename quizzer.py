@@ -102,7 +102,6 @@ def output_results(questions):
 
 def ask_question(question, question_id):
     qid = question.question_id if not shuffle_questions else question_id
-    
     # append the question text
     text = [
         f"{x_indent}{str(qid) + '.' if i < 1 else indent} {s}"
@@ -113,21 +112,23 @@ def ask_question(question, question_id):
     text.append('')
     
     # if any code blocks are included in the question
-    for line in question.code:
-        text += [
-            f"{x_indent}{code_indent} {s}"
-                for s in textwrap.wrap(line, width - len(x_indent) - len(code_indent))
-            ]
-    text.append('')
+    if question.code:
+        for line in question.code:
+            text += [
+                f"{x_indent}{code_indent} {s}"
+                    for s in textwrap.wrap(line, width - len(x_indent) - len(code_indent))
+                ]
+        text.append('')
     
     # any text after the code block is now added
-    text += [
-        f"{x_indent}{indent} {s}"
-            for i, s in enumerate(
-                textwrap.wrap(question.additional, 80 - len(indent) - 2)
-            )
-        ]
-    text.append('')
+    if question.additional:
+        text += [
+            f"{x_indent}{indent} {s}"
+                for i, s in enumerate(
+                    textwrap.wrap(question.additional, 80 - len(indent) - 2)
+                )
+            ]
+        text.append('')
 
     # TODO: randomize answers within a question
     # save the full answer text to find index later after randomization
@@ -192,6 +193,7 @@ def handle_args(args):
     """parse input arguments"""
     global shuffle_questions, shuffle_answers, show_answer, verbose
     global save_results, numbers
+    args = dict()
     if sys.argv:
         for arg in sys.argv[1:]:
             if arg == '-h':
@@ -199,7 +201,7 @@ def handle_args(args):
                 exit(0)
             elif arg.startswith('--file='):
                 # defaults to file_name_json if not set
-                _, file_name_json = arg.split('=')
+                args['file_name_json'] = arg.split('=')[1]
             elif arg == '-s':
                 shuffle_questions = True
             elif arg == '-o':
@@ -218,13 +220,14 @@ def handle_args(args):
                 numbers = number.split(' ')
             else:
                 print(f"{arg} does not match any flags")
+    return args
 
 def main():
     # global variables set before parsing questions    
-    handle_args(sys.argv)
+    args = handle_args(sys.argv)
 
     # load the question set
-    with open(file_name_json, "r") as f:
+    with open(args['file_name_json'], "r") as f:
         data = json.load(f)
     
     # convert them to question objects
