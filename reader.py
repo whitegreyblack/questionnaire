@@ -89,7 +89,7 @@ def parse_text(file_name):
         if a:
             # somehow code block was entered but not correctly escaped
             if code_block_start:
-                raise ValueError("Code block not correctly ended")
+                raise ValueError(f"{l+1}: Code block not correctly ended")
             question.set_correct_answers(a.groups()[1].strip())
 
             # serialize question
@@ -100,7 +100,7 @@ def parse_text(file_name):
             code_block_added = False
             continue
 
-        raise ValueError(f"{l+1}: {repr(line)}")
+        raise ValueError(f"{l+1}: {repr(line)}", f"code block: {code_block_start}", f"added: {code_block_added}")
     
     return questions
 

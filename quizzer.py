@@ -193,7 +193,7 @@ def handle_args(args):
     """parse input arguments"""
     global shuffle_questions, shuffle_answers, show_answer, verbose
     global save_results, numbers
-    args = dict()
+    args = {'file_name_json': file_name_json }
     if sys.argv:
         for arg in sys.argv[1:]:
             if arg == '-h':
