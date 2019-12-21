@@ -9,14 +9,13 @@ import sys
 from dataclasses import dataclass
 
 import click
-
 from config import file_name_json, file_name_text
 from model import AnswerBuilder as Answer
 from model import QuestionBuilder as Question
 
 question_start = re.compile("^(\d*\.)(.*)$")
 question_continue = re.compile("^(\t|   )(.*)$")
-codeblock = re.compile("^\\\"{3}.*$")
+codeblock = re.compile("^\\\"{3}?.*$")
 codeline = re.compile("^(\t|   )?((\d*\.|\.{2})?.*)$")
 answers = re.compile("^(\t|    )[a-e]\.(.*)$")
 answer = re.compile("^(A\..*)\((.*)\).*$")
@@ -113,4 +112,3 @@ def main(file_name_in, file_name_out):
 
 if __name__ == "__main__":
 	main()
-

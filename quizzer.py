@@ -8,9 +8,9 @@ import pprint
 import random
 import sys
 import textwrap
-
-from config import file_name_json, width_min, height_min
 from dataclasses import dataclass
+
+from config import file_name_json, height_min, width_min
 from model import Question
 
 # input argument flags with defaults and variables
