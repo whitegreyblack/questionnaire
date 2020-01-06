@@ -13,6 +13,7 @@ from config import file_name_json, file_name_text
 from model import AnswerBuilder as Answer
 from model import QuestionBuilder as Question
 
+
 question_start = re.compile("^(\d*\.)(.*)$")
 question_continue = re.compile("^(\t|   )(.*)$")
 codeblock = re.compile("^\\\"{3}?.*$")
@@ -28,7 +29,15 @@ def debug(*args):
 def dump(question):
     return json.dumps(question, indent=2)
 
+def print_reader_error(question_number, line_number, line, in_code, code_added):
+    print(f"""
+Reader error: Question {question_number + 1} Line {line_number + 1}: {repr(line)}
+    inside code block: {in_code}
+    code block added: {code_added}"""[1:])
+
 def create_json_file(questions, file_name):
+    if not questions:
+        return
     with open(file_name, "w") as f:
         json.dump(questions, f, indent=2)
     print(f"Created {len(questions)} questions in {file_name}")
@@ -98,9 +107,8 @@ def parse_text(file_name):
             code_block_start = False
             code_block_added = False
             continue
-
-        raise ValueError(f"{l+1}: {repr(line)}", f"code block: {code_block_start}", f"added: {code_block_added}")
-    
+        print_reader_error(len(questions), l, line, code_block_start, code_block_added)
+        break
     return questions
 
 @click.command()
