@@ -31,7 +31,8 @@ def dump(question):
 
 def print_reader_error(question_number, line_number, line, in_code, code_added):
     print(f"""
-Reader error: Question {question_number + 1} Line {line_number + 1}: {repr(line)}
+Reader error: Question {question_number + 1} Line {line_number + 1}
+    {repr(line if len(line) < 80 else line[:77] + '...')}
     inside code block: {in_code}
     code block added: {code_added}"""[1:])
 
