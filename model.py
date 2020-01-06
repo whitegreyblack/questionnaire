@@ -39,6 +39,9 @@ class QuestionBuilder:
     after: list = field(default_factory=list)
     code: list = field(default_factory=list)
     answers: list = field(default_factory=list)
+    @property
+    def empty(self):
+        return all(not l for l in [self.before, self.after, self.code, self.answers])
     def clear(self):
         self.before.clear()
         self.after.clear()
@@ -60,3 +63,4 @@ class QuestionBuilder:
             ],
             'answer_why': None
         }
+

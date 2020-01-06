@@ -13,13 +13,18 @@ from config import file_name_json, file_name_text
 from model import AnswerBuilder as Answer
 from model import QuestionBuilder as Question
 
-
-question_start = re.compile("^(\d*\.)(.*)$")
-question_continue = re.compile("^(\t|   )(.*)$")
-codeblock = re.compile("^\\\"{3}?.*$")
-codeline = re.compile("^(\t|   )?((\d*\.|\.{2})?.*)$")
-answers = re.compile("^(\t|    )[a-e]\.(.*)$")
-answer = re.compile("^(A\..*)\((.*)\).*$")
+question_start_pattern = "^(\d*\.)(.*)$" 
+question_start = re.compile(question_start_pattern)
+question_continue_pattern = "^(\t|   )(.*)$"
+question_continue = re.compile(question_continue_pattern)
+codeblock_pattern = "^\\\"{3}?.*$"
+codeblock = re.compile(codeblock_pattern)
+codeline_pattern = "^(\t|   )?((\d*\.|\.{2})?.*)$" 
+codeline = re.compile(codeline_pattern)
+answers_pattern = "^(\t|    )[a-e]\.(.*)$"
+answers = re.compile(answers_pattern)
+answer_pattern = "^(A\..*)\((.*)\).*$"
+answer = re.compile(answer_pattern)
 width, _ = os.get_terminal_size()
 
 def debug(*args):
@@ -29,12 +34,21 @@ def debug(*args):
 def dump(question):
     return json.dumps(question, indent=2)
 
-def print_reader_error(question_number, line_number, line, in_code, code_added):
+def evaluate_error(question, pattern):
+    if question.answers and pattern is not answer_pattern:
+        return "Final answer string (A. ([a-e]+))"
+    else:
+        return "Error not specified"
+
+def print_reader_error(question, question_number, line_number, line, in_code, code_added, pattern):
+    expected = evaluate_error(question, pattern)
     print(f"""
-Reader error: Question {question_number + 1} Line {line_number + 1}
-    {repr(line if len(line) < 80 else line[:77] + '...')}
-    inside code block: {in_code}
-    code block added: {code_added}"""[1:])
+  Question {question_number + 1}, line {line_number + 1}
+    Got: {repr(line if len(line) < 72 else line[:69] + '...')}
+    Expected: {expected}
+  inside code block: {in_code}
+  code block added: {code_added}
+Reader Error: """[1:])
 
 def create_json_file(questions, file_name):
     if not questions:
@@ -48,6 +62,7 @@ def parse_text(file_name):
     code_block_added = False
     questions = []
     question = Question()
+    last_matched_pattern = None
     
     with open(file_name, "r") as f:
         lines = f.readlines()
@@ -58,20 +73,24 @@ def parse_text(file_name):
             continue
 
         # beginning question statement
-        qs = question_start.match(line)
-        if qs and not code_block_start:
-            question.before.append(qs.groups()[1].strip())
-            continue
+        matched = question_start.match(line)
+        if matched:
+            last_matched_pattern = question_start.pattern
+            if question.empty and not code_block_start:
+                question.before.append(matched.groups()[1].strip())
+                continue
 
         # possible answers statement
-        a = answers.match(line)
-        if a:
-            question.answers.append(Answer(text=a.groups()[1].strip()))
+        matched = answers.match(line)
+        if matched and not question.before:
+            last_matched_pattern = answers.pattern
+            question.answers.append(Answer(text=matched.groups()[1].strip()))
             continue
 
         # possible code block
-        cb = codeblock.match(line)
-        if cb:
+        matched = codeblock.match(line)
+        if matched:
+            last_matched_pattern = codeblock.pattern
             if code_block_start:
                 code_block_start = False
                 code_block_added = True
@@ -80,26 +99,30 @@ def parse_text(file_name):
             continue
 
         # possible code line - only valid if code_block_start is on
-        cl = codeline.match(line)
-        if cl and code_block_start:
-            question.code.append(cl.groups()[1])
-            continue
+        matched = codeline.match(line)
+        if matched:
+            last_matched_pattern = codeline.pattern
+            if code_block_start:
+                question.code.append(matched.groups()[1])
+                continue
         
         # continuing question statement - set last so any lines that don't 
         # match are sent here
-        qc = question_continue.match(line)
-        if qc:
+        matched = question_continue.match(line)
+        if matched:
+            last_matched_pattern = question_continue.pattern
             container = question.before if not code_block_added else question.after
-            container.append(qc.group().strip())
+            container.append(matched.group().strip())
             continue
         
         # correct answer statement - reached end of question. serialize it
-        a = answer.match(line)
-        if a:
+        matched = answer.match(line)
+        if matched:
+            last_matched_pattern = answer.pattern
             # somehow code block was entered but not correctly escaped
             if code_block_start:
                 raise ValueError(f"{l+1}: Code block not correctly ended")
-            question.set_correct_answers(a.groups()[1].strip())
+            question.set_correct_answers(matched.groups()[1].strip())
 
             # serialize question
             serialized_question = question.serialize()
@@ -108,8 +131,17 @@ def parse_text(file_name):
             code_block_start = False
             code_block_added = False
             continue
-        print_reader_error(len(questions), l, line, code_block_start, code_block_added)
+
+        print_reader_error(
+            question, 
+            len(questions), 
+            l, 
+            line, 
+            code_block_start, 
+            code_block_added, 
+            last_matched_pattern)
         break
+
     return questions
 
 @click.command()

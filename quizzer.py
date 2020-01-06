@@ -145,25 +145,28 @@ def ask_question(question, question_id):
     # output question and answer format
     print('\n'.join(' ' for _ in range(y_offset)), '\n'.join(text), '')
 
+def print_message(message):
+    print(f"{x_indent}{message}")
+
 def check_valid_input(question, answer):
     # creates a set ranging from a->d|e depending on number of possible answers
     answers = ''.join(chr(97+i) for i in range(len(question.answers)))
     # checks if all input characters are in the answer set
     valid = all(ch in answers for ch in answer)
     if not valid:
-        print(f"{x_indent}Invalid input: must be in [{', '.join(answers)}]")
+        print_message(f"Invalid input: must be in [{', '.join(answers)}]")
     return valid
 
 def check_valid_answer_length(question, answer):
     valid = len(answer) == len(question.answer)
     if not valid:
-        print(f"{x_indent}Choose {len(question.answer)} answers")
+        print_message(f"Choose {len(question.answer)} answer{'s' if len(question.answer) > 1 else ''}")
     return valid
 
 def check_valid_answer_choices(question, answer):
     valid = len(set(answer)) == len(question.answer)
     if not valid:
-        print(f"{x_indent}Choose {len(question.answer)} unique answers")
+        print_message(f"Choose {len(question.answer)} unique answers")
     return valid
 
 def check_correct_answer(question, answer):
@@ -176,6 +179,8 @@ def handle_input(question):
         except KeyboardInterrupt:
             print()
             return None
+        if answer == "exit":
+            exit(0)
         if (check_valid_input(question, answer) and
             check_valid_answer_length(question, answer) and
             check_valid_answer_choices(question, answer)):
