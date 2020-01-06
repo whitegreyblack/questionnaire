@@ -160,6 +160,12 @@ def check_valid_answer_length(question, answer):
         print(f"{x_indent}Choose {len(question.answer)} answers")
     return valid
 
+def check_valid_answer_choices(question, answer):
+    valid = len(set(answer)) == len(question.answer)
+    if not valid:
+        print(f"{x_indent}Choose {len(question.answer)} unique answers")
+    return valid
+
 def check_correct_answer(question, answer):
     return set(question.answer) == set(ord(ch)-97 for ch in answer)
 
@@ -171,7 +177,8 @@ def handle_input(question):
             print()
             return None
         if (check_valid_input(question, answer) and
-            check_valid_answer_length(question, answer)):
+            check_valid_answer_length(question, answer) and
+            check_valid_answer_choices(question, answer)):
             return answer
 
 def clear_screen():
