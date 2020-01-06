@@ -57,5 +57,6 @@ class QuestionBuilder:
             ],
             'answers': [
                 answer.serialize() for answer in self.answers
-            ]
+            ],
+            'answer_why': None
         }
