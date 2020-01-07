@@ -57,16 +57,18 @@ def create_json_file(questions, file_name):
         json.dump(questions, f, indent=2)
     print(f"Created {len(questions)} questions in {file_name}")
 
-def parse_text(file_name):
+def read_lines_from_file(file_name):
+    with open(file_name, "r") as f:
+        lines = f.readlines()
+    return lines
+
+def parse_text(lines):
     code_block_start = False
     code_block_added = False
     questions = []
     question = Question()
     last_matched_pattern = None
     
-    with open(file_name, "r") as f:
-        lines = f.readlines()
-
     for l, line in enumerate(lines):
         # disregard comments or empty lines
         if line.startswith("--") or line == "\n":
@@ -148,7 +150,8 @@ def parse_text(file_name):
 @click.argument('file_name_in', default=file_name_text)
 @click.argument('file_name_out', default=file_name_json)
 def main(file_name_in, file_name_out):
-    questions = parse_text(file_name_in)
+    lines = read_lines_from_file(file_name_in)
+    questions = parse_text(lines)
     create_json_file(questions, file_name=file_name_out)
 
 if __name__ == "__main__":
