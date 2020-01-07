@@ -3,8 +3,9 @@ import click
 
 from config import file_name_text
 from error import ParserError
-from lexer import (LETTER_LOWER, LETTER_UPPER, NUMBER, SYMBOL, SYMBOLS, TAB,
-                   WORD, read_from_file, tokenize, ENDMARKER)
+from lexer import (COMMA, COMMENT, ENDMARKER, LETTER_LOWER, LETTER_UPPER,
+                   LPAREN, NUMBER, PERIOD, RPAREN, SYMBOL, SYMBOLS, TAB, WORD,
+                   read_from_file, tokenize)
 
 QUESTION_ID = 'question_id' # [1-9]*[1-9]+
 SENTENCE = 'sentence'
@@ -33,23 +34,27 @@ class QuestionStatement:
 #     ...
 
 class QuestionBlock:
-    def __init__(self, question_id, statement, choices):
+    def __init__(self, question_id, statement, choices, answers):
         self.qid = question_id
-        self.stmt = statement
+        self.statement = statement
         self.choices = choices
-    # def __init__(self, qid, statement, choices, answer, code=None, after=None):
-    #     self.qid = qid
-    #     self.statement = statement
-    #     self.choices = choices
-    #     self.answer = answer
-    #     self.code = code
-    #     self.after = after
+        self.answers = answers
 
     def __repr__(self):
         return f"{self.qid} number of choices: {len(self.choices)}"
+    
+    def preview(self):
+        choices = "\n    ".join(str(choice) for choice in self.choices)
+        return f"""
+{self.qid} {self.statement}
+    {choices}
+A. ({self.answers})"""[1:]
 
-# class AnswerStatement:
-#     ...
+class AnswerStatement:
+    def __init__(self, answers):
+        self.answers = answers
+    def __repr__(self):
+        return ", ".join(answers)
 
 class ChoiceId:
     def __init__(self, letter, symbol):
@@ -64,9 +69,6 @@ class ChoiceStatement:
         self.statement = statement
     def __repr__(self):
         return f"{self.choice_id} {self.statement}"
-
-# class AnswersBlock:
-#     ...
 
 def error(message):
     e = ParserError(message=message)
@@ -89,18 +91,27 @@ def check_if_letter(token):
     if not is_letter(token):
         error(f"Expected letter token for choice id. Got: {token}")
 
+def consume(source, tokens, token_type):
+    token = tokens.pop(0)
+    if token.type == token_type:
+        return token
+    else:
+        error(f"""
+  {__file__}, {source}()
+    Got: {token.type} ({repr(token.value)})
+        
+ParserError: unexepected token. Expected: {token_type} token"""[1:])
+
 def question_id(tokens):
-    number = tokens.pop(0)
-    check_if_number(number)
-    symbol = tokens.pop(0)
-    check_if_period(symbol)
+    number = consume('question_id', tokens, NUMBER)
+    symbol = consume('question_id', tokens, PERIOD)
     return QuestionId(number, symbol)
 
 def is_period(token):
-    return token.type == SYMBOL and token.value == '.'
+    return token.type == PERIOD and token.value == '.'
 
 def is_symbol(token):
-    return token.type == SYMBOL
+    return token.type in (SYMBOL, PERIOD, LPAREN, RPAREN, COMMA)
 
 def is_letter(token):
     return token.type == LETTER_UPPER or token.type == LETTER_LOWER
@@ -133,17 +144,14 @@ def question_statement_pre(tokens):
     return QuestionStatement(sentence_statement(tokens))
 
 def choice_id(tokens):
-    letter = tokens.pop(0)
-    check_if_letter(letter)
-    symbol = tokens.pop(0)
-    check_if_period(symbol)
+    tabchr = consume('choice_id', tokens, TAB)
+    letter = consume('choice_id', tokens, LETTER_LOWER)
+    symbol = consume('choice_id', tokens, PERIOD)
     return QuestionId(letter, symbol)
 
 def question_choices(tokens):
     choices = []
     while True:
-        tab = tokens.pop(0)
-        check_if_tab(tab)
         cid = choice_id(tokens)
         sentence = sentence_statement(tokens)
         choices.append(ChoiceStatement(cid, sentence))
@@ -151,25 +159,43 @@ def question_choices(tokens):
             break
     return choices
 
-def question(tokens):
+def question_answer(tokens):
+    answers = []
+    letter = consume('question_answer', tokens, LETTER_UPPER)
+    symbol = consume('question_answer', tokens, PERIOD)
+    lparen = consume('question_answer', tokens, LPAREN)
+    while True:
+        letter = consume('question_answer', tokens, LETTER_LOWER)
+        answers.append(letter)
+        if tokens[0].type == COMMA:
+            symbol = consume('question_answer', tokens, COMMA)
+            continue
+        if tokens[0].type == RPAREN:
+            rparen = consume('question_answer', tokens, RPAREN)
+            break
+    return AnswerStatement(answers)
+
+def question_block(tokens):
     qid = question_id(tokens)
     statement = question_statement_pre(tokens)
     choices = question_choices(tokens)
-    return QuestionBlock(qid, statement, choices)
+    answer = question_answer(tokens)
+    return QuestionBlock(qid, statement, choices, answer)
 
 def questions(tokens):
     blocks = []
     while tokens:
-        block = question(tokens)
+        block = question_block(tokens)
         blocks.append(block)
         break
     return blocks
 
 def parse(tokens):
     blocks = questions(tokens)
-    print(blocks)
+    for b in blocks:
+        print(b.preview())
     if tokens[0].type != ENDMARKER:
-        print(tokens)
+        print(tokens[0:4], len(tokens))
         error("Not all tokens consumed")
     return blocks
 

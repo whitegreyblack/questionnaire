@@ -9,15 +9,19 @@ offset = [65, 97]
 ALPHABET = "".join(chr(offset[j] + i) for i in range(26) for j in range(2))
 NUMERIC = "".join(str(i) for i in range(10))
 SYMBOLS = "\\-':?_;.,<>/()"
-WORD = 'word' # [a-zA-Z]
-LETTER_UPPER = 'letter upper'
-LETTER_LOWER = 'letter lower'
-WHITESPACE = 'whitespace' # [ ]*
-NEWLINE = 'newline' # \n
+WORD = 'word' # [a-zA-Z]+
+LETTER_UPPER = 'letter upper' # ex. 'A'
+LETTER_LOWER = 'letter lower' # ex. 'a'
+WHITESPACE = 'whitespace' # [' ']*
+NEWLINE = 'newline' # '\n'
 TAB = 'tab' # '\t'
 NUMBER = 'number' # [0-9]+
-SYMBOL = 'symbol' # \-':?_;.,<>/
-COMMENT = 'comment' # --
+SYMBOL = 'symbol' # \-':?_;,<>/
+LPAREN = 'left parenthesis' # (
+RPAREN = 'right parenthesis' # )
+PERIOD = 'period' # '.'
+COMMA = 'comma'
+COMMENT = 'comment' # '--'
 ENDMARKER = 'endmarker' # '' (empty string)
 
 class Token:
@@ -100,7 +104,17 @@ def tokenize(text):
 
         # symbols
         if char in SYMBOLS:
-            tokens.append(Token(SYMBOL, char))
+            if char == '.':
+                token_type = PERIOD
+            elif char == '(':
+                token_type = LPAREN
+            elif char == ')':
+                token_type = RPAREN
+            elif char == ',':
+                token_type = COMMA
+            else:
+                token_type = SYMBOL
+            tokens.append(Token(token_type, char))
             position = advance(text, position)
             continue
 
