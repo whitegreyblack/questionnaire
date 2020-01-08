@@ -1,11 +1,13 @@
 # parser.py
 import click
 
-from config import file_name_text
+from config import lex_test_file_name_in as file_name_in
 from error import ParserError
 from lexer import (COMMA, COMMENT, ENDMARKER, LETTER_LOWER, LETTER_UPPER,
                    LPAREN, NUMBER, PERIOD, RPAREN, SYMBOL, SYMBOLS, TAB, WORD,
                    read_from_file, tokenize)
+from model import (AnswerStatement, ChoiceId, ChoiceStatement, QuestionBlock,
+                   QuestionId, QuestionStatement)
 
 QUESTION_ID = 'question_id' # [1-9]*[1-9]+
 SENTENCE = 'sentence'
@@ -13,62 +15,6 @@ ANSWER_CHOICE = 'answer_choice' # [a-e].
 ANSWER = 'answer' # A.
 ANSWER_SET = 'answer_set' # \(([a-e],)*[a-e]+)
 
-class QuestionId:
-    def __init__(self, number, symbol):
-        self.number = number
-        self.symbol = symbol
-    
-    def __repr__(self):
-        return f"{self.number.value}{self.symbol.value}"
-
-class QuestionStatement:
-    def __init__(self, statement):
-        self.statement = statement
-    def __repr__(self):
-        return self.statement
-
-# class CodeStatement:
-#     ...
-
-# class QuestionContinueStatement:
-#     ...
-
-class QuestionBlock:
-    def __init__(self, question_id, statement, choices, answers):
-        self.qid = question_id
-        self.statement = statement
-        self.choices = choices
-        self.answers = answers
-
-    def __repr__(self):
-        return f"{self.qid} number of choices: {len(self.choices)}"
-    
-    def preview(self):
-        choices = "\n    ".join(str(choice) for choice in self.choices)
-        return f"""
-{self.qid} {self.statement}
-    {choices}
-A. ({self.answers})"""[1:]
-
-class AnswerStatement:
-    def __init__(self, answers):
-        self.answers = answers
-    def __repr__(self):
-        return ", ".join(answers)
-
-class ChoiceId:
-    def __init__(self, letter, symbol):
-        self.letter = letter
-        self.symbol = symbol
-    def __repr__(self):
-        return f"{self.letter.value}{self.symbol.value}"
-
-class ChoiceStatement:
-    def __init__(self, choice_id, statement):
-        self.choice_id = choice_id
-        self.statement = statement
-    def __repr__(self):
-        return f"{self.choice_id} {self.statement}"
 
 def error(message):
     e = ParserError(message=message)
@@ -95,8 +41,7 @@ def consume(source, tokens, token_type):
     token = tokens.pop(0)
     if token.type == token_type:
         return token
-    else:
-        error(f"""
+    error(f"""
   {__file__}, {source}()
     Got: {token.type} ({repr(token.value)})
         
@@ -107,6 +52,9 @@ def question_id(tokens):
     symbol = consume('question_id', tokens, PERIOD)
     return QuestionId(number, symbol)
 
+def is_number(token):
+    return token.type == NUMBER
+
 def is_period(token):
     return token.type == PERIOD and token.value == '.'
 
@@ -114,7 +62,16 @@ def is_symbol(token):
     return token.type in (SYMBOL, PERIOD, LPAREN, RPAREN, COMMA)
 
 def is_letter(token):
-    return token.type == LETTER_UPPER or token.type == LETTER_LOWER
+    return is_upper_letter(token) or is_lower_letter(token)
+
+def is_upper_letter(token):
+    return token.type == LETTER_UPPER
+
+def is_lower_letter(token):
+    return token.type == LETTER_LOWER
+
+def is_answer_letter(token):
+    is_upper_letter(token) and token.value == 'A'
 
 def is_word(token):
     return token.type == WORD or is_letter(token)
@@ -129,7 +86,9 @@ def sentence_statement(tokens):
     token = tokens.pop(0)
     sentence = []
     while token:
-        if not is_symbol(token) and not is_word(token):
+        if not (is_symbol(token) or is_word(token) or is_number(token)):
+            break
+        if is_answer_letter and is_period(tokens[0]):
             break
         sentence.append(token.value)
         word_to_word = is_word(token) and is_word(tokens[0])
@@ -166,7 +125,7 @@ def question_answer(tokens):
     lparen = consume('question_answer', tokens, LPAREN)
     while True:
         letter = consume('question_answer', tokens, LETTER_LOWER)
-        answers.append(letter)
+        answers.append(letter.value)
         if tokens[0].type == COMMA:
             symbol = consume('question_answer', tokens, COMMA)
             continue
@@ -187,7 +146,8 @@ def questions(tokens):
     while tokens:
         block = question_block(tokens)
         blocks.append(block)
-        break
+        if tokens[0].type == ENDMARKER:
+            break
     return blocks
 
 def parse(tokens):
@@ -200,7 +160,7 @@ def parse(tokens):
     return blocks
 
 @click.command()
-@click.argument('file_name_in', default=file_name_text)
+@click.argument('file_name_in', default=file_name_in)
 def main(file_name_in):
     text = read_from_file(file_name_in)
     tokens = tokenize(text)

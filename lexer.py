@@ -2,7 +2,7 @@
 
 import click
 
-from config import file_name_text
+from config import lex_test_file_name_in as file_name_in
 from error import LexerError
 
 offset = [65, 97]
@@ -153,7 +153,7 @@ def tokenize(text):
     return tokens
 
 @click.command()
-@click.argument('file_name_in', default=file_name_text)
+@click.argument('file_name_in', default=file_name_in)
 def main(file_name_in):
     text = read_from_file(file_name_in)
     tokens = tokenize(text)
