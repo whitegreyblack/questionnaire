@@ -47,8 +47,11 @@ class QuestionBuilder:
     before: list = field(default_factory=list)
     after: list = field(default_factory=list)
     code: list = field(default_factory=list)
-    answers: list[AnswerBuilder] = field(default_factory=list)
+    answers: list = field(default_factory=list)
 
+    @property
+    def empty(self):
+        return all(not l for l in [self.before, self.after, self.code, self.answers])
     def clear(self):
         self.before.clear()
         self.after.clear()
@@ -72,3 +75,60 @@ class QuestionBuilder:
             ],
             'answer_why': None
         }
+
+class QuestionId:
+    def __init__(self, number, symbol):
+        self.number = number
+        self.symbol = symbol
+    
+    def __repr__(self):
+        return f"{self.number.value}{self.symbol.value}"
+
+class QuestionStatement:
+    def __init__(self, statement):
+        self.statement = statement
+    def __repr__(self):
+        return self.statement
+
+# class CodeStatement:
+#     ...
+
+# class QuestionContinueStatement:
+#     ...
+
+class QuestionBlock:
+    def __init__(self, question_id, statement, choices, answers):
+        self.qid = question_id
+        self.statement = statement
+        self.choices = choices
+        self.answers = answers
+
+    def __repr__(self):
+        return f"{self.qid} number of choices: {len(self.choices)}"
+    
+    def preview(self):
+        choices = "\n    ".join(str(choice) for choice in self.choices)
+        return f"""
+{self.qid} {self.statement}
+    {choices}
+A. ({self.answers})"""[1:]
+
+class AnswerStatement:
+    def __init__(self, answers):
+        self.answers = answers
+    def __repr__(self):
+        return ", ".join(str(choice) for choice in self.answers)
+
+class ChoiceId:
+    def __init__(self, letter, symbol):
+        self.letter = letter
+        self.symbol = symbol
+    def __repr__(self):
+        return f"{self.letter.value}{self.symbol.value}"
+
+class ChoiceStatement:
+    def __init__(self, choice_id, statement):
+        self.choice_id = choice_id
+        self.statement = statement
+    def __repr__(self):
+        return f"{self.choice_id} {self.statement}"
